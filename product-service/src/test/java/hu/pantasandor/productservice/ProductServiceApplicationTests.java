@@ -2,9 +2,12 @@ package hu.pantasandor.productservice;
 
 import hu.pantasandor.productservice.dto.ProductRequest;
 import hu.pantasandor.productservice.dto.ProductResponse;
+import hu.pantasandor.productservice.model.Product;
 import hu.pantasandor.productservice.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -19,12 +22,12 @@ import java.util.List;
 import static hu.pantasandor.productservice.controller.ProductController.API_URL;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.notNullValue;
+import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @RequiredArgsConstructor(onConstructor = @__(@Autowired))
 class ProductServiceApplicationTests {
 
@@ -48,8 +51,12 @@ class ProductServiceApplicationTests {
         dynamicPropertyRegistry.add("spring.cloud.discovery.enabled", () -> false);
     }
 
+    @BeforeEach
+    private void setUp() {
+        productRepository.deleteAll();
+    }
+
     @Test
-    @Order(0)
     @DisplayName("Should not get products")
     public void shouldNotGetProducts() {
         assertTrue(productRepository.findAll().isEmpty());
@@ -66,13 +73,12 @@ class ProductServiceApplicationTests {
     }
 
     @Test
-    @Order(1)
     @DisplayName("Should not create product with empty name")
     public void shouldNotCreateProductWithEmptyName() {
-        var responseEntity = getProductRequest(null, PRODUCT_DESCRIPTION, PRODUCT_PRICE);
+        var productRequest = getProductRequest(null, PRODUCT_DESCRIPTION, PRODUCT_PRICE);
         webClient.post()
                 .uri(API_URL)
-                .bodyValue(responseEntity)
+                .bodyValue(productRequest)
                 .exchange()
                 .expectHeader().contentType(APPLICATION_JSON)
                 .expectStatus().isBadRequest();
@@ -81,14 +87,13 @@ class ProductServiceApplicationTests {
     }
 
     @Test
-    @Order(2)
     @DisplayName("Should create product")
     public void shouldCreateProduct() {
-        var responseEntity = getProductRequest(PRODUCT_NAME, PRODUCT_DESCRIPTION, PRODUCT_PRICE);
+        var productRequest = getProductRequest(PRODUCT_NAME, PRODUCT_DESCRIPTION, PRODUCT_PRICE);
         webClient.post()
                 .uri(API_URL)
                 .contentType(APPLICATION_JSON)
-                .bodyValue(responseEntity)
+                .bodyValue(productRequest)
                 .exchange()
                 .expectHeader().contentType(APPLICATION_JSON)
                 .expectStatus().isCreated()
@@ -102,10 +107,13 @@ class ProductServiceApplicationTests {
     }
 
     @Test
-    @Order(3)
     @DisplayName("Should get products")
     public void shouldGetProducts() {
-        assertEquals(1, productRepository.findAll().size());
+        productRepository.save(getProduct(PRODUCT_NAME, PRODUCT_DESCRIPTION, PRODUCT_PRICE));
+        List<Product> products = productRepository.findAll();
+        assertEquals(1, products.size());
+
+        var id = products.get(0).getId();
 
         webClient.get()
                 .uri(API_URL)
@@ -114,16 +122,17 @@ class ProductServiceApplicationTests {
                 .expectStatus().isOk()
                 .expectBodyList(ProductResponse.class)
                 .value(List::size, equalTo(1))
-                .value(responses -> responses.get(0).getName(), equalTo(PRODUCT_NAME))
-                .value(responses -> responses.get(0).getDescription(), equalTo(PRODUCT_DESCRIPTION))
-                .value(responses -> responses.get(0).getPrice(), equalTo(PRODUCT_PRICE));
+                .value(responses -> responses, contains(getProductResponse(id, PRODUCT_NAME, PRODUCT_DESCRIPTION, PRODUCT_PRICE)));
     }
 
     @Test
-    @Order(4)
     @DisplayName("Should get product")
     public void shouldGetProduct() {
-        var id = productRepository.findAll().get(0).getId();
+        productRepository.save(getProduct(PRODUCT_NAME, PRODUCT_DESCRIPTION, PRODUCT_PRICE));
+        List<Product> products = productRepository.findAll();
+        assertEquals(1, products.size());
+
+        var id = products.get(0).getId();
         webClient.get()
                 .uri(API_URL + "/" + id)
                 .exchange()
@@ -136,12 +145,30 @@ class ProductServiceApplicationTests {
                 .value(ProductResponse::getPrice, equalTo(PRODUCT_PRICE));
     }
 
+    private ProductResponse getProductResponse(String id, String name, String description, BigDecimal price) {
+        return ProductResponse.builder()
+                .id(id)
+                .name(name)
+                .description(description)
+                .price(price)
+                .build();
+    }
+
     private ProductRequest getProductRequest(String name, String description, BigDecimal price) {
         return ProductRequest.builder()
                 .name(name)
                 .description(description)
                 .price(price)
                 .build();
+    }
+
+    private Product getProduct(String name, String description, BigDecimal price) {
+        var product = new Product();
+        product.setName(name);
+        product.setDescription(description);
+        product.setPrice(price);
+
+        return product;
     }
 
 }
