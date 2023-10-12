@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @Transactional
@@ -37,8 +38,8 @@ public class ProductService {
         return products;
     }
 
-    public Product getProduct(String id) {
-        var product = productRepository.findById(id).orElseThrow();
+    public Optional<Product> getProduct(String id) {
+        var product = productRepository.findById(id);
         log.info("getProduct: {} {}", id, product);
 
         return product;

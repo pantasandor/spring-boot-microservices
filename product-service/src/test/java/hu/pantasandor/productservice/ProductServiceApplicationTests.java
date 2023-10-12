@@ -26,6 +26,7 @@ import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.http.MediaType.APPLICATION_PROBLEM_JSON;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @RequiredArgsConstructor(onConstructor = @__(@Autowired))
@@ -33,6 +34,7 @@ class ProductServiceApplicationTests {
 
     public static final String PRODUCT_NAME = "product_name";
     public static final String PRODUCT_DESCRIPTION = "product_desc";
+    public static final String INVALID_PRODUCT_ID = "invalid_product_id";
     public static final BigDecimal PRODUCT_PRICE = BigDecimal.valueOf(1_000_000);
 
     @Container
@@ -80,7 +82,7 @@ class ProductServiceApplicationTests {
                 .uri(API_URL)
                 .bodyValue(productRequest)
                 .exchange()
-                .expectHeader().contentType(APPLICATION_JSON)
+                .expectHeader().contentType(APPLICATION_PROBLEM_JSON)
                 .expectStatus().isBadRequest();
 
         assertTrue(productRepository.findAll().isEmpty());
@@ -143,6 +145,18 @@ class ProductServiceApplicationTests {
                 .value(ProductResponse::getName, equalTo(PRODUCT_NAME))
                 .value(ProductResponse::getDescription, equalTo(PRODUCT_DESCRIPTION))
                 .value(ProductResponse::getPrice, equalTo(PRODUCT_PRICE));
+    }
+
+    @Test
+    @DisplayName("Should not get product")
+    public void shouldNotGetProduct() {
+        assertEquals(0, productRepository.findAll().size());
+
+        webClient.get()
+                .uri(API_URL + "/" + INVALID_PRODUCT_ID)
+                .exchange()
+                .expectHeader().contentType(APPLICATION_PROBLEM_JSON)
+                .expectStatus().isNotFound();
     }
 
     private ProductResponse getProductResponse(String id, String name, String description, BigDecimal price) {
